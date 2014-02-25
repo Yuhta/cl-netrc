@@ -8,4 +8,4 @@
         #:alexandria
         #:split-sequence)
   (:export #:make-netrc
-           #:netrc-get))
+           #:lookup))

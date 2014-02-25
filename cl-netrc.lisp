@@ -66,5 +66,7 @@
                                   (open path-string)))
           (setf entries (parse (tokenize in))))))))
 
-(defun netrc-get (netrc machine)
-  (rest (assoc machine (entries netrc) :test #'string=)))
+(defun lookup (netrc machine)
+  (with-slots (entries) netrc
+    (rest (or (assoc machine entries :test #'string=)
+              (assoc :default entries)))))
