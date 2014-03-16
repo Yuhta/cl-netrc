@@ -22,13 +22,26 @@
              path right-perm perm))))
 
 (defun decode-file (path-string)
-  (let ((process (run-program "gpg" (list "--batch"
-                                          "--quiet"
-                                          "--decrypt" path-string)
-                              :output :stream :search t)))
-    (unless (zerop (process-exit-code process))
+  (let ((process #+sbcl
+                 (sb-ext:run-program "gpg"
+                                     (list "--batch"
+                                           "--quiet"
+                                           "--decrypt" path-string)
+                                     :output :stream :search t)
+                 #+ccl
+                 (ccl:run-program "gpg"
+                                  (list "--batch"
+                                        "--quiet"
+                                        "--decrypt" path-string)
+                                  :output :stream)))
+    (unless (zerop #+ccl
+                   (second (multiple-value-list
+                            (ccl:external-process-status process)))
+                   #+sbcl
+                   (sb-ext:process-exit-code process))
       (error "Failed to decrypt ~s" path-string))
-    (process-output process)))
+    #+sbcl (sb-ext:process-output process)
+    #+ccl (ccl:external-process-output-stream process)))
 
 (defun tokenize (input)
   (loop for line = (read-line input nil)
@@ -59,7 +72,10 @@
 (defmethod initialize-instance :after ((netrc netrc) &key)
   (with-slots (path entries) netrc
     (when-let ((truename (probe-file path)))
-      (let ((path-string (namestring truename)))
+      (let ((path-string #-ccl
+                         (namestring truename)
+                         #+ccl
+                         (ccl:native-translated-namestring truename)))
         (check-permissions path-string)
         (with-open-stream (in (if (ends-with-subseq ".gpg" path-string)
                                   (decode-file path-string)
